@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Raphael AI - 免费 AI 图像生成器</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .ad-slot {
+      background: #f9fafb;
+      border: 1px dashed #d1d5db;
+      color: #6b7280;
+      text-align: center;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      margin: 2rem 0;
+      font-size: 0.875rem;
+    }
+    .generate-btn {
+      background: linear-gradient(90deg, #6366f1, #8b5cf6);
+      color: white;
+      font-weight: 600;
+    }
+    .style-card {
+      border: 2px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .style-card:hover, .style-card.active {
+      border-color: #8b5cf6;
+      background-color: #f5f3ff;
+    }
+    .inspiration-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 12px;
+    }
+    .inspiration-item {
+      height: 120px;
+      background-color: #f3f4f6;
+      border-radius: 8px;
+      overflow: hidden;
+      cursor: pointer;
+      position: relative;
+    }
+    .inspiration-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .testimonial-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .faq-item {
+      border-bottom: 1px solid #e5e7eb;
+      padding: 1rem 0;
+    }
+    .faq-question {
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body class="bg-white">
+
+  <!-- 顶部广告 -->
+  <div class="ad-slot" data-ad="top">[广告位 - 顶部]</div>
+
+  <!-- Hero -->
+  <div class="text-center py-12 px-4">
+    <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">在几秒钟内创建令人惊叹的 AI 生成图像</h1>
+    <p class="text-xl text-gray-600 mb-8">全球首个无限免费 AI 图像生成器</p>
+
+    <!-- 主输入区 -->
+    <div class="max-w-2xl mx-auto bg-white border border-gray-200 rounded-2xl shadow-lg p-6">
+      <textarea
+        id="promptInput"
+        placeholder="输入您的创意描述，例如：一只穿着宇航服的猫在月球上..."
+        class="w-full h-24 p-4 text-gray-800 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300"
+      ></textarea>
+
+      <div class="mt-4">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div class="style-card active" data-style="写实">照片</div>
+          <div class="style-card" data-style="动漫">动漫</div>
+          <div class="style-card" data-style="油画">油画</div>
+          <div class="style-card" data-style="数码艺术">数码艺术</div>
+        </div>
+      </div>
+
+      <button id="generateBtn" class="generate-btn w-full py-3 rounded-xl mt-6 hover:opacity-90 transition">
+        生成图像
+      </button>
+    </div>
+  </div>
+
+  <!-- 广告：灵感图下方 -->
+  <div class="ad-slot" data-ad="inspiration-below">[广告位 - 灵感图下方]</div>
+
+  <!-- 获取灵感 -->
+  <section class="px-4 py-12 bg-gray-50">
+    <div class="max-w-6xl mx-auto">
+      <h2 class="text-2xl font-bold text-center mb-8">获取灵感</h2>
+      <p class="text-gray-600 text-center mb-6">从 Raphael 的创作中获取灵感</p>
+      <div class="inspiration-grid" id="inspirationGrid">
+        <!-- 动态加载 9 张图 -->
+      </div>
+    </div>
+  </section>
+
+  <!-- 广告：特性区之间 -->
+  <div class="ad-slot" data-ad="features-middle">[广告位 - 特性区之间]</div>
+
+  <!-- 主要特点 -->
+  <section class="px-4 py-12">
+    <div class="max-w-4xl mx-auto text-center mb-12">
+      <h2 class="text-3xl font-bold mb-4">Raphael AI 图像生成器的主要特点</h2>
+      <p class="text-gray-600">体验下一代 AI 图像生成——Raphael AI 图像生成器——强大、免费且注重隐私。</p>
+    </div>
+
+    <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div class="text-center">
+        <div class="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <i class="fas fa-gift text-indigo-600"></i>
+        </div>
+        <h3 class="font-bold text-lg mb-2">零成本创作</h3>
+        <p class="text-gray-600">完全免费，无使用限制，无需注册。</p>
+      </div>
+      <div class="text-center">
+        <div class="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <i class="fas fa-brain text-indigo-600"></i>
+        </div>
+        <h3 class="font-bold text-lg mb-2">最先进质量</h3>
+        <p class="text-gray-600">智能路由：Qwen-Image、Flux 2、Z-Image 等。</p>
+      </div>
+      <div class="text-center">
+        <div class="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <i class="fas fa-lock text-indigo-600"></i>
+        </div>
+        <h3 class="font-bold text-lg mb-2">增强的隐私保护</h3>
+        <p class="text-gray-600">零数据保留，绝不存储您的内容。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 用户评价（简化） -->
+  <section class="px-4 py-12 bg-gray-50">
+    <div class="max-w-4xl mx-auto text-center mb-8">
+      <h2 class="text-2xl font-bold">深受数百万人信赖</h2>
+      <p class="text-gray-600 mt-2">基于 25,000+ 用户评分，平均 4.9/5 分</p>
+    </div>
+    <div class="testimonial-grid">
+      <!-- 头像占位 -->
+      <div class="text-center"><img src="https://via.placeholder.com/60" class="rounded-full mx-auto mb-2"><p class="text-sm">Sophie M.</p></div>
+      <div class="text-center"><img src="https://via.placeholder.com/60" class="rounded-full mx-auto mb-2"><p class="text-sm">Michael C.</p></div>
+      <div class="text-center"><img src="https://via.placeholder.com/60" class="rounded-full mx-auto mb-2"><p class="text-sm">Sarah W.</p></div>
+      <div class="text-center"><img src="https://via.placeholder.com/60" class="rounded-full mx-auto mb-2"><p class="text-sm">David L.</p></div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="px-4 py-12 max-w-3xl mx-auto">
+    <h2 class="text-2xl font-bold text-center mb-8">常见问题</h2>
+    <div id="faqList">
+      <div class="faq-item">
+        <div class="faq-question">Raphael AI 真的免费吗？<i class="fas fa-chevron-down"></i></div>
+        <div class="faq-answer mt-2 text-gray-600">是的，完全免费，无隐藏费用。</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-question">我需要注册吗？<i class="fas fa-chevron-down"></i></div>
+        <div class="faq-answer mt-2 text-gray-600">不需要，打开网站即可使用。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 底部广告 -->
+  <div class="ad-slot" data-ad="footer">[广告位 - 页脚]</div>
+
+  <footer class="py-6 text-center text-gray-500 text-sm">
+    © 2026 Raphael AI 克隆版. 保留所有权利。
+  </footer>
+
+  <script>
+    let selectedStyle = '写实';
+
+    // 风格选择
+    $('.style-card').on('click', function() {
+      $('.style-card').removeClass('active');
+      $(this).addClass('active');
+      selectedStyle = $(this).data('style');
+    });
+
+    // 生成图像
+    $('#generateBtn').on('click', async function() {
+      const prompt = $('#promptInput').val().trim();
+      if (!prompt) return alert('请输入描述');
+
+      // 调用 Qwen-VL（通义万相）
+      try {
+        const res = await fetch('/api/generate-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt, style: selectedStyle })
+        });
+        const data = await res.json();
+        if (data.imageUrl) {
+          alert('图像生成成功！\nURL: ' + data.imageUrl);
+          // 可在此处插入 <img> 到页面
+        } else {
+          alert('生成失败: ' + (data.error || '未知错误'));
+        }
+      } catch (err) {
+        alert('请求失败，请重试');
+      }
+    });
+
+    // 获取灵感（调用 Moonshot 生成提示词 + 示例图）
+    async function loadInspiration() {
+      try {
+        const res = await fetch('/api/inspiration-prompts');
+        const prompts = await res.json();
+        const grid = $('#inspirationGrid');
+        grid.empty();
+        prompts.forEach(p => {
+          // 使用 picsum 作为示例图（实际可返回真实图）
+          const img = `<div class="inspiration-item" title="${p}"><img src="https://picsum.photos/120/120?random=${Math.random()}" onclick="document.getElementById('promptInput').value='${p.replace(/'/g, "\\'")}'"></div>`;
+          grid.append(img);
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // FAQ 折叠
+    $('.faq-question').on('click', function() {
+      $(this).next('.faq-answer').slideToggle();
+      $(this).find('i').toggleClass('fa-chevron-down fa-chevron-up');
+    });
+
+    // 初始化
+    $(document).ready(function() {
+      loadInspiration();
+    });
+  </script>
+</body>
+</html>
