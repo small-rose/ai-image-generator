@@ -1,0 +1,14 @@
+{
+  "functions": {
+    "api/generate-image.js": {
+      "runtime": "nodejs18.x"
+    },
+    "api/inspiration-prompts.js": {
+      "runtime": "nodejs18.x"
+    }
+  },
+  "rewrites": [
+    { "source": "/api/generate-image", "destination": "api/generate-image.js" },
+    { "source": "/api/inspiration-prompts", "destination": "api/inspiration-prompts.js" }
+  ]
+}
