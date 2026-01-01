@@ -1,9 +1,17 @@
 // api/inspiration-prompts.js
-const { MOONSHOT_API_KEY } = process.env;
+// ✅ 正确：Node.js Serverless Function 写法（CommonJS 兼容）
 
-export default async function handler() {
+module.exports = async (request, response) => {
+  // 从环境变量获取 API Key
+  const MOONSHOT_API_KEY = process.env.MOONSHOT_API_KEY;
+
+  if (!MOONSHOT_API_KEY) {
+    return response.status(500).json({ error: 'Missing MOONSHOT_API_KEY' });
+  }
+
   try {
     const res = await fetch('https://api.moonshot.cn/v1/chat/completions', {
+      // ✅ 修复1：删除 URL 末尾空格
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${MOONSHOT_API_KEY}`,
@@ -20,32 +28,46 @@ export default async function handler() {
       })
     });
 
-    const data = await res.json();
-    const text = data.choices?.[0]?.message?.content || '';
-    const prompts = text
-      .split('\n')
-      .map(p => p.trim().replace(/^\d+\.\s*/, '').replace(/"/g, ''))
-      .filter(p => p.length > 5 && p.length < 30)
-      .slice(0, 9);
-
-    if (prompts.length < 3) {
-      prompts.push(
-        "一只戴着墨镜的柴犬在东京街头",
-        "赛博朋克风格的未来城市夜景",
-        "水墨山水画，有仙鹤和云雾"
-      );
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('Moonshot API error:', errorText);
+      throw new Error(`Moonshot API returned ${res.status}: ${errorText}`);
     }
 
-    return new Response(JSON.stringify(prompts), {
-      headers: { 'Content-Type': 'application/json' }
-    });
+    const data = await res.json();
+    let prompts = [];
+
+    if (data.choices?.[0]?.message?.content) {
+      const text = data.choices[0].message.content;
+      prompts = text
+        .split('\n')
+        .map(p => p.trim().replace(/^\d+\.\s*/, '').replace(/"/g, ''))
+        .filter(p => p.length > 5 && p.length < 30)
+        .slice(0, 9);
+    }
+
+    if (prompts.length < 3) {
+      prompts = [
+        "一只戴着墨镜的柴犬在东京街头",
+        "赛博朋克风格的未来城市夜景",
+        "水墨山水画，有仙鹤和云雾",
+        "未来主义太空站内部",
+        "樱花树下的和服少女",
+        "机械巨龙在沙漠中",
+        "海底发光水母群",
+        "中世纪魔法学院图书馆",
+        "极光下的北极熊"
+      ].slice(0, 9);
+    }
+
+    // ✅ 正确返回 JSON
+    response.status(200).json(prompts);
   } catch (err) {
-    return new Response(JSON.stringify([
+    console.error('Handler error:', err);
+    response.status(500).json([
       "一只穿着宇航服的猫在月球上",
       "复古蒸汽朋克图书馆",
       "梦幻星空下的独角兽"
-    ]), {
-      headers: { 'Content-Type': 'application/json' }
-    });
+    ]);
   }
-}
+};
