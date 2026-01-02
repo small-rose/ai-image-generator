@@ -1,17 +1,26 @@
 // api/inspiration-prompts.js
 // ✅ 正确：Node.js Serverless Function 写法（CommonJS 兼容）
+// api/inspiration-prompts.js
+module.exports = async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-module.exports = async (request, response) => {
-  // 从环境变量获取 API Key
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.method !== 'GET') {
+    return res.status(405).end('Method Not Allowed');
+  }
+
   const MOONSHOT_API_KEY = process.env.MOONSHOT_API_KEY;
-
   if (!MOONSHOT_API_KEY) {
-    return response.status(500).json({ error: 'Missing MOONSHOT_API_KEY' });
+    return res.status(500).json({ error: 'Missing MOONSHOT_API_KEY' });
   }
 
   try {
-    const res = await fetch('https://api.moonshot.cn/v1/chat/completions', {
-      // ✅ 修复1：删除 URL 末尾空格
+    const apiRes = await fetch('https://api.moonshot.cn/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${MOONSHOT_API_KEY}`,
@@ -28,13 +37,7 @@ module.exports = async (request, response) => {
       })
     });
 
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error('Moonshot API error:', errorText);
-      throw new Error(`Moonshot API returned ${res.status}: ${errorText}`);
-    }
-
-    const data = await res.json();
+    const data = await apiRes.json();
     let prompts = [];
 
     if (data.choices?.[0]?.message?.content) {
@@ -50,21 +53,14 @@ module.exports = async (request, response) => {
       prompts = [
         "一只戴着墨镜的柴犬在东京街头",
         "赛博朋克风格的未来城市夜景",
-        "水墨山水画，有仙鹤和云雾",
-        "未来主义太空站内部",
-        "樱花树下的和服少女",
-        "机械巨龙在沙漠中",
-        "海底发光水母群",
-        "中世纪魔法学院图书馆",
-        "极光下的北极熊"
-      ].slice(0, 9);
+        "水墨山水画，有仙鹤和云雾"
+      ];
     }
 
-    // ✅ 正确返回 JSON
-    response.status(200).json(prompts);
+    res.status(200).json(prompts);
   } catch (err) {
-    console.error('Handler error:', err);
-    response.status(500).json([
+    console.error('Moonshot error:', err);
+    res.status(500).json([
       "一只穿着宇航服的猫在月球上",
       "复古蒸汽朋克图书馆",
       "梦幻星空下的独角兽"
