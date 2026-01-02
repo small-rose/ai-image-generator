@@ -37,8 +37,8 @@ module.exports = async (req, res) => {
     };
     const fullPrompt = `${prompt.trim()}, ${styleMap[style] || ''}`;
 
-    // ✅ 正确请求体：无 task_type，size 在 input 内
-    const taskRes = await fetch('https://dashscope.aliyuncs.com/api/v1/tasks', {
+    // ✅ 关键：使用国际站 Endpoint
+    const taskRes = await fetch('https://dashscope-intl.aliyuncs.com/api/v1/tasks', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${DASHSCOPE_API_KEY}`,
@@ -71,13 +71,13 @@ module.exports = async (req, res) => {
 
     const taskId = taskData.output.task_id;
 
-    // 轮询结果
+    // 轮询结果（国际站同样支持）
     let attempts = 0;
     const maxAttempts = 30;
     while (attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      const pollRes = await fetch(`https://dashscope.aliyuncs.com/api/v1/tasks/${taskId}`, {
+      const pollRes = await fetch(`https://dashscope-intl.aliyuncs.com/api/v1/tasks/${taskId}`, {
         headers: {
           'Authorization': `Bearer ${DASHSCOPE_API_KEY}`,
           'Content-Type': 'application/json'
