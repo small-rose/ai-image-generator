@@ -37,26 +37,22 @@ module.exports = async (req, res) => {
     };
     const fullPrompt = `${prompt.trim()}, ${styleMap[style] || ''}`;
 
-    // ✅ 构造请求体（确保非空）
-    const requestBody = JSON.stringify({
-      model: 'wanx-v1',
-      input: {
-        prompt: fullPrompt,
-        n: 1,
-        size: '1024*1024'
-      }
-    });
-
-    // ✅ 强制 POST：显式设置 Content-Length
-    const taskRes = await fetch('https://dashscope-intl.aliyuncs.com/api/v1/tasks', {
+    // ✅ 关键修复：使用国际站正确的异步创建路径
+    const taskRes = await fetch('https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/text2image/image-async', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${DASHSCOPE_API_KEY}`,
         'Content-Type': 'application/json',
-        'X-DashScope-Async': 'enable',
-        'Content-Length': Buffer.byteLength(requestBody).toString() // ⭐ 关键修复
+        'X-DashScope-Async': 'enable'
       },
-      body: requestBody
+      body: JSON.stringify({
+        model: 'wanx-v1',
+        input: {
+          prompt: fullPrompt,
+          n: 1,
+          size: '1024*1024'
+        }
+      })
     });
 
     const taskText = await taskRes.text();
@@ -70,34 +66,50 @@ module.exports = async (req, res) => {
 
     if (!taskRes.ok || !taskData.output || !taskData.output.task_id) {
       console.error('Create task failed:', taskData);
-      return res.status(500).json({ error: 'Failed to create image task' });
+      return res.status(500).json({ error: 'Failed to create image task', details: taskData });
     }
 
     const taskId = taskData.output.task_id;
 
-    // 轮询结果（略，保持不变）
+    // 轮询结果（路径不变）
     let attempts = 0;
     const maxAttempts = 30;
     while (attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, 2000));
+
       const pollRes = await fetch(`https://dashscope-intl.aliyuncs.com/api/v1/tasks/${taskId}`, {
         headers: {
           'Authorization': `Bearer ${DASHSCOPE_API_KEY}`,
           'Content-Type': 'application/json'
         }
       });
-      const pollData = await pollRes.json();
+
+      const pollText = await pollRes.text();
+      let pollData;
+      try {
+        pollData = JSON.parse(pollText);
+      } catch (e) {
+        console.error('Invalid poll response:', pollText);
+        attempts++;
+        continue;
+      }
+
       const taskStatus = pollData.output?.task_status;
       if (taskStatus === 'SUCCEEDED') {
         const imageUrl = pollData.output.results?.[0]?.url;
-        if (imageUrl) return res.status(200).json({ imageUrl });
-        else return res.status(500).json({ error: 'No image URL' });
+        if (imageUrl) {
+          return res.status(200).json({ imageUrl });
+        } else {
+          return res.status(500).json({ error: 'No image URL in result' });
+        }
       } else if (taskStatus === 'FAILED') {
         return res.status(500).json({ error: 'Image generation failed' });
       }
+
       attempts++;
     }
-    return res.status(504).json({ error: 'Timeout' });
+
+    return res.status(504).json({ error: 'Image generation timeout' });
   } catch (err) {
     console.error('Handler error:', err);
     return res.status(500).json({ error: err.message || 'Internal error' });
