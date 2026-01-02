@@ -37,8 +37,8 @@ module.exports = async (req, res) => {
     };
     const fullPrompt = `${prompt.trim()}, ${styleMap[style] || ''}`;
 
-    // Step 1: 创建异步任务
-    const taskRes = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-async-synthesis', {
+    // ✅ Step 1: 创建异步任务（正确 URL）
+    const taskRes = await fetch('https://dashscope.aliyuncs.com/api/v1/tasks', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${DASHSCOPE_API_KEY}`,
@@ -46,8 +46,11 @@ module.exports = async (req, res) => {
       },
       body: JSON.stringify({
         model: 'wanx-v1',
-        input: { prompt: fullPrompt },
-        parameters: { size: '1024*1024' }
+        task_type: 'text2image',
+        input: {
+          prompt: fullPrompt,
+          size: '1024*1024'
+        }
       })
     });
 
@@ -64,11 +67,11 @@ module.exports = async (req, res) => {
       return res.status(500).json({ error: 'No task_id returned' });
     }
 
-    // Step 2: 轮询结果（最多 30 秒）
+    // ✅ Step 2: 轮询结果
     let attempts = 0;
     const maxAttempts = 30;
     while (attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 1000)); // 等 1 秒
+      await new Promise(resolve => setTimeout(resolve, 2000)); // 等 2 秒
 
       const pollRes = await fetch(`https://dashscope.aliyuncs.com/api/v1/tasks/${taskId}`, {
         headers: {
@@ -76,11 +79,6 @@ module.exports = async (req, res) => {
           'Content-Type': 'application/json'
         }
       });
-
-      if (!pollRes.ok) {
-        console.error('Poll error:', await pollRes.text());
-        break;
-      }
 
       const pollData = await pollRes.json();
       const taskStatus = pollData.output.task_status;
