@@ -37,12 +37,13 @@ module.exports = async (req, res) => {
     };
     const fullPrompt = `${prompt.trim()}, ${styleMap[style] || ''}`;
 
-    // ✅ Step 1: 创建异步任务（正确 URL）
+    // ✅ 关键修复：添加 X-DashScope-Async: enable
     const taskRes = await fetch('https://dashscope.aliyuncs.com/api/v1/tasks', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${DASHSCOPE_API_KEY}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'X-DashScope-Async': 'enable' // ← 必须添加！
       },
       body: JSON.stringify({
         model: 'wanx-v1',
@@ -54,24 +55,27 @@ module.exports = async (req, res) => {
       })
     });
 
-    if (!taskRes.ok) {
-      const text = await taskRes.text();
-      console.error('Create task error:', text);
-      return res.status(500).json({ error: 'Failed to create image task' });
+    const taskText = await taskRes.text();
+    let taskData;
+    try {
+      taskData = JSON.parse(taskText);
+    } catch (e) {
+      console.error('Invalid task response:', taskText);
+      return res.status(500).json({ error: 'Invalid response from Qwen API' });
     }
 
-    const taskData = await taskRes.json();
+    if (!taskRes.ok || !taskData.output || !taskData.output.task_id) {
+      console.error('Create task failed:', taskData);
+      return res.status(500).json({ error: 'Failed to create image task', details: taskData });
+    }
+
     const taskId = taskData.output.task_id;
 
-    if (!taskId) {
-      return res.status(500).json({ error: 'No task_id returned' });
-    }
-
-    // ✅ Step 2: 轮询结果
+    // 轮询结果（最多 30 次，每次间隔 2 秒）
     let attempts = 0;
     const maxAttempts = 30;
     while (attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 2000)); // 等 2 秒
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       const pollRes = await fetch(`https://dashscope.aliyuncs.com/api/v1/tasks/${taskId}`, {
         headers: {
@@ -80,9 +84,17 @@ module.exports = async (req, res) => {
         }
       });
 
-      const pollData = await pollRes.json();
-      const taskStatus = pollData.output.task_status;
+      const pollText = await pollRes.text();
+      let pollData;
+      try {
+        pollData = JSON.parse(pollText);
+      } catch (e) {
+        console.error('Invalid poll response:', pollText);
+        attempts++;
+        continue;
+      }
 
+      const taskStatus = pollData.output?.task_status;
       if (taskStatus === 'SUCCEEDED') {
         const imageUrl = pollData.output.results?.[0]?.url;
         if (imageUrl) {
