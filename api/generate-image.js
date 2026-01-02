@@ -37,7 +37,7 @@ module.exports = async (req, res) => {
     };
     const fullPrompt = `${prompt.trim()}, ${styleMap[style] || ''}`;
 
-    // ✅ 关键修复：使用国际站正确的异步创建路径
+    // ✅ 使用你提供的模型名：wanx2.6-image
     const taskRes = await fetch('https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/text2image/image-async', {
       method: 'POST',
       headers: {
@@ -46,7 +46,7 @@ module.exports = async (req, res) => {
         'X-DashScope-Async': 'enable'
       },
       body: JSON.stringify({
-        model: 'wanx-v1',
+        model: 'wanx2.6-image', // ← 关键：使用正确模型名
         input: {
           prompt: fullPrompt,
           n: 1,
@@ -66,12 +66,12 @@ module.exports = async (req, res) => {
 
     if (!taskRes.ok || !taskData.output || !taskData.output.task_id) {
       console.error('Create task failed:', taskData);
-      return res.status(500).json({ error: 'Failed to create image task', details: taskData });
+      return res.status(500).json({ error: 'Failed to create image task', details: taskData.message || taskData });
     }
 
     const taskId = taskData.output.task_id;
 
-    // 轮询结果（路径不变）
+    // 轮询结果
     let attempts = 0;
     const maxAttempts = 30;
     while (attempts < maxAttempts) {
