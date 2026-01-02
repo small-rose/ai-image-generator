@@ -37,19 +37,19 @@ module.exports = async (req, res) => {
     };
     const fullPrompt = `${prompt.trim()}, ${styleMap[style] || ''}`;
 
-    // ✅ 关键修复：添加 X-DashScope-Async: enable
+    // ✅ 正确请求体：无 task_type，size 在 input 内
     const taskRes = await fetch('https://dashscope.aliyuncs.com/api/v1/tasks', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${DASHSCOPE_API_KEY}`,
         'Content-Type': 'application/json',
-        'X-DashScope-Async': 'enable' // ← 必须添加！
+        'X-DashScope-Async': 'enable'
       },
       body: JSON.stringify({
         model: 'wanx-v1',
-        task_type: 'text2image',
         input: {
           prompt: fullPrompt,
+          n: 1,
           size: '1024*1024'
         }
       })
@@ -66,12 +66,12 @@ module.exports = async (req, res) => {
 
     if (!taskRes.ok || !taskData.output || !taskData.output.task_id) {
       console.error('Create task failed:', taskData);
-      return res.status(500).json({ error: 'Failed to create image task', details: taskData });
+      return res.status(500).json({ error: 'Failed to create image task', details: taskData.message || taskData });
     }
 
     const taskId = taskData.output.task_id;
 
-    // 轮询结果（最多 30 次，每次间隔 2 秒）
+    // 轮询结果
     let attempts = 0;
     const maxAttempts = 30;
     while (attempts < maxAttempts) {
