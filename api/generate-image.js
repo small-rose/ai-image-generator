@@ -46,7 +46,7 @@ module.exports = async (req, res) => {
         'X-DashScope-Async': 'enable'
       },
       body: JSON.stringify({
-        model: 'wanx2.6-image', // ← 关键：使用正确模型名
+        model: 'wan2.6-t2i', // ← 关键：使用正确模型名
         input: {
           prompt: fullPrompt,
           n: 1,
