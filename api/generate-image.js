@@ -1,47 +1,40 @@
 // api/generate-image.js
-export default async function handler(request) {
-  // 处理 CORS 预检
-  if (request.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      },
-    });
+module.exports = async (req, res) => {
+  // CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
   }
 
-  // 仅允许 POST
-  if (request.method !== 'POST') {
-    return new Response('Method Not Allowed', { status: 405 });
+  if (req.method !== 'POST') {
+    return res.status(405).end('Method Not Allowed');
   }
 
-  // 解析 JSON body
+  // Read request body
+  let body = '';
+  req.on('data', chunk => {
+    body += chunk.toString();
+  });
+  await new Promise(resolve => req.once('end', resolve));
+
   let data;
   try {
-    data = await request.json();
+    data = JSON.parse(body);
   } catch (e) {
-    return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(400).json({ error: 'Invalid JSON' });
   }
 
   const { prompt, style } = data;
   if (!prompt || typeof prompt !== 'string') {
-    return new Response(JSON.stringify({ error: 'Valid prompt is required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(400).json({ error: 'Valid prompt is required' });
   }
 
   const DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY;
   if (!DASHSCOPE_API_KEY) {
-    return new Response(JSON.stringify({ error: 'Missing DASHSCOPE_API_KEY' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(500).json({ error: 'Missing DASHSCOPE_API_KEY' });
   }
 
   try {
@@ -53,7 +46,7 @@ export default async function handler(request) {
     };
     const fullPrompt = `${prompt.trim()}, ${styleMap[style] || ''}`;
 
-    const res = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis', {
+    const apiRes = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${DASHSCOPE_API_KEY}`,
@@ -66,24 +59,22 @@ export default async function handler(request) {
       })
     });
 
-    const apiData = await res.json();
+    if (!apiRes.ok) {
+      const text = await apiRes.text();
+      console.error('Qwen API error:', text);
+      return res.status(apiRes.status).json({ error: 'Qwen API error' });
+    }
 
-    if (apiData.output?.results?.[0]?.url) {
-      return new Response(JSON.stringify({ imageUrl: apiData.output.results[0].url }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
+    const result = await apiRes.json();
+    const imageUrl = result.output?.results?.[0]?.url;
+
+    if (imageUrl) {
+      return res.status(200).json({ imageUrl });
     } else {
-      const errorMessage = apiData.message || 'Image generation failed';
-      return new Response(JSON.stringify({ error: errorMessage }), {
-        status: res.status >= 400 ? res.status : 500,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return res.status(500).json({ error: 'No image returned' });
     }
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message || 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    console.error('Handler error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
   }
-}
+};
