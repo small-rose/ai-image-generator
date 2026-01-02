@@ -1,23 +1,14 @@
 // api/generate-image.js
 module.exports = async (req, res) => {
-  // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).end('Method Not Allowed');
 
-  if (req.method !== 'POST') {
-    return res.status(405).end('Method Not Allowed');
-  }
-
-  // Read request body
   let body = '';
-  req.on('data', chunk => {
-    body += chunk.toString();
-  });
+  req.on('data', chunk => body += chunk);
   await new Promise(resolve => req.once('end', resolve));
 
   let data;
@@ -46,7 +37,8 @@ module.exports = async (req, res) => {
     };
     const fullPrompt = `${prompt.trim()}, ${styleMap[style] || ''}`;
 
-    const apiRes = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis', {
+    // Step 1: 创建异步任务
+    const taskRes = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-async-synthesis', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${DASHSCOPE_API_KEY}`,
@@ -59,22 +51,57 @@ module.exports = async (req, res) => {
       })
     });
 
-    if (!apiRes.ok) {
-      const text = await apiRes.text();
-      console.error('Qwen API error:', text);
-      return res.status(apiRes.status).json({ error: 'Qwen API error' });
+    if (!taskRes.ok) {
+      const text = await taskRes.text();
+      console.error('Create task error:', text);
+      return res.status(500).json({ error: 'Failed to create image task' });
     }
 
-    const result = await apiRes.json();
-    const imageUrl = result.output?.results?.[0]?.url;
+    const taskData = await taskRes.json();
+    const taskId = taskData.output.task_id;
 
-    if (imageUrl) {
-      return res.status(200).json({ imageUrl });
-    } else {
-      return res.status(500).json({ error: 'No image returned' });
+    if (!taskId) {
+      return res.status(500).json({ error: 'No task_id returned' });
     }
+
+    // Step 2: 轮询结果（最多 30 秒）
+    let attempts = 0;
+    const maxAttempts = 30;
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 1000)); // 等 1 秒
+
+      const pollRes = await fetch(`https://dashscope.aliyuncs.com/api/v1/tasks/${taskId}`, {
+        headers: {
+          'Authorization': `Bearer ${DASHSCOPE_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!pollRes.ok) {
+        console.error('Poll error:', await pollRes.text());
+        break;
+      }
+
+      const pollData = await pollRes.json();
+      const taskStatus = pollData.output.task_status;
+
+      if (taskStatus === 'SUCCEEDED') {
+        const imageUrl = pollData.output.results?.[0]?.url;
+        if (imageUrl) {
+          return res.status(200).json({ imageUrl });
+        } else {
+          return res.status(500).json({ error: 'No image URL in result' });
+        }
+      } else if (taskStatus === 'FAILED') {
+        return res.status(500).json({ error: 'Image generation failed' });
+      }
+
+      attempts++;
+    }
+
+    return res.status(504).json({ error: 'Image generation timeout' });
   } catch (err) {
     console.error('Handler error:', err);
-    return res.status(500).json({ error: err.message || 'Internal server error' });
+    return res.status(500).json({ error: err.message || 'Internal error' });
   }
 };
