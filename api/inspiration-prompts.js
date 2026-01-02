@@ -1,20 +1,24 @@
 // api/inspiration-prompts.js
-export default async function handler(request) {
-  // 仅允许 GET
-  if (request.method !== 'GET') {
-    return new Response('Method Not Allowed', { status: 405 });
+module.exports = async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.method !== 'GET') {
+    return res.status(405).end('Method Not Allowed');
   }
 
   const MOONSHOT_API_KEY = process.env.MOONSHOT_API_KEY;
   if (!MOONSHOT_API_KEY) {
-    return new Response(JSON.stringify({ error: 'Missing MOONSHOT_API_KEY' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(500).json({ error: 'Missing MOONSHOT_API_KEY' });
   }
 
   try {
-    const res = await fetch('https://api.moonshot.cn/v1/chat/completions', {
+    const apiRes = await fetch('https://api.moonshot.cn/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${MOONSHOT_API_KEY}`,
@@ -31,7 +35,13 @@ export default async function handler(request) {
       })
     });
 
-    const data = await res.json();
+    if (!apiRes.ok) {
+      const text = await apiRes.text();
+      console.error('Moonshot error:', text);
+      // 降级返回保底提示词
+    }
+
+    const data = await apiRes.json();
     let prompts = [];
 
     if (data.choices?.[0]?.message?.content) {
@@ -43,7 +53,6 @@ export default async function handler(request) {
         .slice(0, 9);
     }
 
-    // 保底提示词
     if (prompts.length < 3) {
       prompts = [
         "一只戴着墨镜的柴犬在东京街头",
@@ -55,16 +64,13 @@ export default async function handler(request) {
         "海底发光水母群",
         "中世纪魔法学院图书馆",
         "极光下的北极熊"
-      ].slice(0, 9);
+      ];
     }
 
-    return new Response(JSON.stringify(prompts), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return res.status(200).json(prompts);
   } catch (err) {
-    // 降级返回
-    return new Response(JSON.stringify([
+    console.error('Handler error:', err);
+    return res.status(200).json([
       "一只穿着宇航服的猫在月球上",
       "复古蒸汽朋克图书馆",
       "梦幻星空下的独角兽",
@@ -74,9 +80,6 @@ export default async function handler(request) {
       "海底沉船宝藏",
       "敦煌飞天壁画风格",
       "赛博朋克猫咪"
-    ]), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    ]);
   }
-}
+};
